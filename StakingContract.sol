@@ -37,22 +37,24 @@ modifier updatedReward(address _account){
     _;
 }
 
+
+
 constructor(address _stakingToken, address _rewardToken) {
     owner = msg.sender; 
     stakingToken = IERC20(_stakingToken);
     rewardToken = IERC20(_rewardToken);
 }
 
+//set reward duration
 function setRewardsDuraction(uint _duration) external onlyOwner {
     require(finishAt < block.timestamp, "reward duration not finished");
    duration = _duration;
 }
 
-
+//setting the reward rate
 function notifyRewardAmount( uint _amount ) external  onlyOwner updatedReward(address(0)){
     if(block.timestamp > finishAt){
         rewardRate = _amount/ duration;
-
     }else {
         uint remainingRewards = rewardRate * (finishAt - block.timestamp );
         rewardRate = (remainingRewards + _amount ) / duration;
@@ -65,7 +67,7 @@ function notifyRewardAmount( uint _amount ) external  onlyOwner updatedReward(ad
 
 }
 
-
+//stake
 function stake(uint _amount) external updatedReward(msg.sender) {
  require(_amount > 0 ,"amount = 0");
  stakingToken.transferFrom(msg.sender, address(this), _amount);
@@ -73,6 +75,7 @@ function stake(uint _amount) external updatedReward(msg.sender) {
  totalSupply += _amount;
 }
 
+//withdraw
 function withdraw(uint _amount) external updatedReward(msg.sender) {
     require(_amount > 0, "amount = 0");
     balanceOf[msg.sender] -= _amount;
@@ -80,6 +83,14 @@ function withdraw(uint _amount) external updatedReward(msg.sender) {
     stakingToken.transfer(msg.sender, _amount);
     
 }
+
+//earned
+function earned(address _account) public view returns(uint){
+    return (balanceOf[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18 + rewards[_account];
+}
+
+
+
 
 function lastTimieRewardApplicable() public view returns (uint){
     return  _min(block.timestamp, finishAt);
@@ -91,12 +102,6 @@ function rewardPerToken () public view returns (uint){
     }
     return rewardPerTokenStored + (rewardRate * (lastTimieRewardApplicable() - updatedAt) * 1e18 ) / totalSupply;
 }
-
-
-function earned(address _account) public view returns(uint){
-    return (balanceOf[_account] * (rewardPerToken() - userRewardPerTokenPaid[_account])) / 1e18 + rewards[_account];
-}
-
 
 
 function getReward()external updatedReward(msg.sender){
