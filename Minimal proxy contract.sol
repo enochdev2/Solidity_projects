@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// original code
-// https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
+
 
 contract MinimalProxy {
     function clone(address target) external returns (address result) {

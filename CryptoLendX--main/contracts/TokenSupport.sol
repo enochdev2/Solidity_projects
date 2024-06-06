@@ -3,7 +3,7 @@
 pragma solidity ^0.8.18;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "./libraries/ChainlinkOracle.sol";
+import "./libraries/ChainlinkOracle.sol"; 
 import "./utils/Constants.sol";
 import "./interfaces/PoolStructs.sol";
 
@@ -11,7 +11,7 @@ import "./interfaces/PoolStructs.sol";
  * @title Lending Pool Token Support
  * @dev used to add new supported ERC20 or ERC721 tokens to the lending pool, will give access to the chainlink USD price feeds.
  */
-contract TokenSupport is Constants {
+contract TokenSupport is Constants { 
     using ChainlinkOracle for AggregatorV3Interface;
 
     //--------------------------------------------------------------------
@@ -44,7 +44,7 @@ contract TokenSupport is Constants {
      * @param token The address of the token.
      * @param priceFeed The address of the Chainlink price feed.
      * @param tokenType The type of the token (ERC20 or ERC721).
-     */
+     */ 
     function addSupportedToken(
         address token,
         address priceFeed,

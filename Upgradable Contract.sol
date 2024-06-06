@@ -134,7 +134,7 @@ contract Proxy {
            
             returndatacopy(0, 0, returndatasize())
 
-            switch result
+            switch result 
             // delegatecall returns 0 on error.
             case 0 {
                 // revert(p, s) - end execution, revert state changes, return data mem[p…(p+s))

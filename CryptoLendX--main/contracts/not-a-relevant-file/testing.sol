@@ -12,21 +12,12 @@ import {InterestRate} from "./libraries/InterestRate.sol";
 import {Pausable} from "./utils/Pausable.sol";
 import "./libraries/TokenHelper.sol";
 
-/**
- * @title An NFT & ERC20 lending pool
- * @notice This contract implements a lending and borrowing protocol with support for ERC20 and NFT collateral.
- * @dev This contract will be owned by the governance who is the only address allowed to: add new vaults, change existing vault setup, pause pool or specific vault.
- */
 contract LendingPool is Pausable, NFTCollateral {
     using VaultAccounting for PoolStructs.Vault;
     using InterestRate for PoolStructs.VaultInfo;
     using TokenHelper for address;
 
-    //--------------------------------------------------------------------
-    /** VARIABLES */
-
-    // ERC20 token => TokenVault
-    mapping(address => PoolStructs.TokenVault) private vaults;
+      mapping(address => PoolStructs.TokenVault) private vaults;
     // user => token => (colletral, borrow) shares
     mapping(address => mapping(address => PoolStructs.AccountShares))
         private userShares;
@@ -34,10 +25,7 @@ contract LendingPool is Pausable, NFTCollateral {
     mapping(address => mapping(address => mapping(uint256 => PoolStructs.LiquidateWarn)))
         private nftLiquidationWarning;
 
-    //--------------------------------------------------------------------
-    /** ERRORS */
-
-    error TooHighSlippage(uint256 sharesOutOrAmountIn);
+          error TooHighSlippage(uint256 sharesOutOrAmountIn);
     error InsufficientBalance();
     error BelowHeathFactor();
     error BorrowerIsSolvant();
@@ -59,8 +47,6 @@ contract LendingPool is Pausable, NFTCollateral {
     error EmptyArray();
     error ArrayMismatch();
 
-    //--------------------------------------------------------------------
-    /** EVENTS */
 
     event Deposit(address user, address token, uint256 amount, uint256 shares);
     event Borrow(address user, address token, uint256 amount, uint256 shares);
@@ -93,7 +79,10 @@ contract LendingPool is Pausable, NFTCollateral {
         uint256[] tokenIds,
         bytes data
     );
-    event DepositNFT(address user, address nftAddress, uint256 tokenId);
+
+
+
+     event DepositNFT(address user, address nftAddress, uint256 tokenId);
     event WithdrawNFT(
         address user,
         address recipient,
@@ -111,6 +100,7 @@ contract LendingPool is Pausable, NFTCollateral {
         address nftAddress,
         uint256 tokenId
     );
+
     event NFTLiquidated(
         address liquidator,
         address borrower,
@@ -121,16 +111,7 @@ contract LendingPool is Pausable, NFTCollateral {
     );
     event NewVaultSetup(address token, PoolStructs.VaultSetupParams params);
 
-    //--------------------------------------------------------------------
-    /** Constructor */
-
-    /**
-     * @notice Sets the first vault using DAI.
-     * @param daiAddress DAI token address.
-     * @param daiPriceFeed The address of DAI/USD price feed contract .
-     * @param daiVaultParams The parameters for DAI token vault (see PoolStructs.VaultSetupParams).
-     */
-    constructor(
+      constructor(
         address daiAddress,
         address daiPriceFeed,
         PoolStructs.VaultSetupParams memory daiVaultParams
@@ -144,18 +125,13 @@ contract LendingPool is Pausable, NFTCollateral {
         );
     }
 
-    /*//////////////////////////////////////////////////////////////
+
+     /*//////////////////////////////////////////////////////////////
                         ERC20 Logic functions
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Allows users to supply ERC20 tokens to the pool.
-     * @dev only supported ERC20 are allowed.
-     * @dev pool or token vault must not be paused.
-     * @param token The ERC20 token address.
-     * @param amount The amount of tokens to supply.
-     * @param minSharesOut The minimum shares to be receive.
-     */
+
+
     function supply(
         address token,
         uint256 amount,
@@ -176,14 +152,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit Deposit(msg.sender, token, amount, shares);
     }
 
-    /**
-     * @notice Allows users to borrow ERC20 tokens from the pool.
-     * @dev pool or token vault must not be paused.
-     * @dev will revert if pool goes below reserve ratio.
-     * @param token The ERC20 token address.
-     * @param amount The amount of tokens to borrow.
-     */
-    function borrow(address token, uint256 amount) external {
+      function borrow(address token, uint256 amount) external {
         WhenNotPaused(token);
         if (!vaultAboveReserveRatio(token, amount))
             revert InsufficientBalance();
@@ -201,12 +170,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit Borrow(msg.sender, token, amount, shares);
     }
 
-    /**
-     * @notice Allows users to repay borrowed ERC20 tokens to the pool.
-     * @param token The ERC20 token address.
-     * @param amount The amount of tokens to repay, set to type(uint256).max for full repayment.
-     */
-    function repay(address token, uint256 amount) external {
+     function repay(address token, uint256 amount) external {
         _accrueInterest(token);
         uint256 userBorrowShare = userShares[msg.sender][token].borrow;
         uint256 shares = vaults[token].totalBorrow.toShares(amount, true);
@@ -223,13 +187,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit Repay(msg.sender, token, amount, shares);
     }
 
-    /**
-     * @notice Allows users to withdraw supplied ERC20 tokens.
-     * @param token The ERC20 token address.
-     * @param amount The amount of tokens to withdraw.
-     * @param maxSharesIn The maximum shares to be redeemed for the desired withdraw amount, used as slippage protection.
-     */
-    function withdraw(
+     function withdraw(
         address token,
         uint256 amount,
         uint256 maxSharesIn
@@ -237,13 +195,7 @@ contract LendingPool is Pausable, NFTCollateral {
         _withdraw(token, amount, maxSharesIn, false);
     }
 
-    /**
-     * @notice Redeems shares for ERC20 tokens from the lending pool.
-     * @param token The ERC20 token address.
-     * @param shares The amount of shares to redeem.
-     * @param minAmountOut The minimum amount to be received for the shares redeemed, used as slippage protection.
-     */
-    function redeem(
+     function redeem(
         address token,
         uint256 shares,
         uint256 minAmountOut
@@ -251,15 +203,7 @@ contract LendingPool is Pausable, NFTCollateral {
         _withdraw(token, shares, minAmountOut, true);
     }
 
-    /**
-     * @notice Allows users to liquidate unsolvent borrower.
-     * @dev borrower must be below min HF.
-     * @dev full liquidation is only allowed if borrower HF is below ´CLOSE_FACTOR_HF_THRESHOLD´ otherwise can only repay uo to 50% of borrower debts.
-     * @param account The borrower's address.
-     * @param collateral The collateral asset address.
-     * @param userBorrowToken The token the borrower has borrowed.
-     * @param amountToLiquidate The amount to liquidate.
-     */
+
     function liquidate(
         address account,
         address collateral,
@@ -381,15 +325,8 @@ contract LendingPool is Pausable, NFTCollateral {
         );
     }
 
-    /**
-     * @notice Allow users to flashloan supported tokens.
-     * @dev must pay flashloan fees to this contract.
-     * @param receiverAddress address that receive flashloaned tokens amounts.
-     * @param tokens array of tokens addresses to be borrowed.
-     * @param amounts array of tokens amounts to be borrowed.
-     * @param data contain user-defined parameters.
-     */
-    function flashloan(
+
+     function flashloan(
         address receiverAddress,
         address[] calldata tokens,
         uint256[] calldata amounts,
@@ -428,15 +365,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit FlashloanSuccess(msg.sender, tokens, amounts, fees, data);
     }
 
-    /**
-     * @notice Accrue interest for a specific ERC20 token.
-     * @param token The ERC20 token address.
-     * @return _interestEarned The interest earned.
-     * @return _feesAmount The fees amount accrued for the protocol.
-     * @return _feesShare The fees shares accrued for the protocol.
-     * @return _newRate The new interest rate.
-     */
-    function accrueInterest(
+      function accrueInterest(
         address token
     )
         external
@@ -450,31 +379,17 @@ contract LendingPool is Pausable, NFTCollateral {
         return _accrueInterest(token);
     }
 
-    /*//////////////////////////////////////////////////////////////
+ /*//////////////////////////////////////////////////////////////
                         NFT Logic functions
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Allows users to deposit NFT as collateral.
-     * @dev NFT must be supported by the pool.
-     * @dev can only deposit when lending pool is not paused.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT to deposit.
-     */
-    function depositNFT(address nftAddress, uint256 tokenId) external {
+     function depositNFT(address nftAddress, uint256 tokenId) external {
         WhenNotPaused(address(0)); // pool is not paused
         _depositNFT(nftAddress, tokenId);
         emit DepositNFT(msg.sender, nftAddress, tokenId);
     }
 
-    /**
-     * @notice Allows users to withdraw deposited NFT collateral.
-     * @dev must remain above min HF after withdrawal.
-     * @param recipient The address of the NFT receiver.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT to withdraw.
-     */
-    function withdrawNFT(
+     function withdrawNFT(
         address recipient,
         address nftAddress,
         uint256 tokenId
@@ -485,16 +400,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit WithdrawNFT(msg.sender, recipient, nftAddress, tokenId);
     }
 
-    /**
-     * @notice Start an NFT collateral liquidation.
-     * @dev will not liquidate NFT.
-     * @dev will emit a warning and give a delay to the borrower to increase HF to avoid NFT liquidation.
-     * @dev caller will be give right to liquidate if warning delay has passed and borrower is still unsolvent.
-     * @param account The address of the borrower to liquidate.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT to liquidate.
-     */
-    function triggerNFTLiquidation(
+     function triggerNFTLiquidation(
         address account,
         address nftAddress,
         uint256 tokenId
@@ -520,15 +426,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit LiquidingNFTWarning(msg.sender, account, nftAddress, tokenId);
     }
 
-    /**
-     * @notice Stop an NFT collateral liquidation.
-     * @dev callable by anyone
-     * @dev borrower must be above minimum HF.
-     * @param account The address of the borrower getting liquidated.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT being liquidated.
-     */
-    function stopNFTLiquidation(
+     function stopNFTLiquidation(
         address account,
         address nftAddress,
         uint256 tokenId
@@ -539,13 +437,8 @@ contract LendingPool is Pausable, NFTCollateral {
         emit LiquidateNFTStopped(account, nftAddress, tokenId);
     }
 
-    /**
-     * @notice execute NFT liquidation.
-     * @param account The address of the borrower getting liquidated.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT being liquidated.
-     */
-    function executeNFTLiquidation(
+
+     function executeNFTLiquidation(
         address account,
         address nftAddress,
         uint256 tokenId,
@@ -631,14 +524,7 @@ contract LendingPool is Pausable, NFTCollateral {
         );
     }
 
-    /**
-     * @notice Allow NFT depositor to flashloan NFT to claim airdrop.
-     * @param receiverAddress address that receive flashloaned tokens amounts.
-     * @param nftAddress address of the NFT collection.
-     * @param tokenIds array of tokens Ids to be flashloaned.
-     * @param data contain user-defined parameters.
-     */
-    function flashAirdrop(
+     function flashAirdrop(
         address receiverAddress,
         address nftAddress,
         uint256[] calldata tokenIds,
@@ -674,18 +560,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit FlashAirdropSuccess(msg.sender, nftAddress, tokenIds, data);
     }
 
-    /**
-     * @dev Checks if an NFT can be liquidated.
-     * @dev can be liquidated when:
-     * borrower must be below min health factor.
-     * liquidation warning must have been emitted.
-     * liquidation warning delay gas passed.
-     * liquidator that triggered the warning will have 5 minutes to liquidate after that anyone will be able to liquidate NFT.
-     * @param account The address of the account.
-     * @param nftAddress The address of the NFT contract.
-     * @param tokenId The ID of the NFT.
-     */
-    function canLiquidateNFT(
+     function canLiquidateNFT(
         address account,
         address nftAddress,
         uint256 tokenId
@@ -705,15 +580,12 @@ contract LendingPool is Pausable, NFTCollateral {
         ) revert LiquidatorDelayHasNotPassed();
     }
 
+
     /*//////////////////////////////////////////////////////////////
                         Getters functions
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @dev Returns the total tokens collateral, total NFTs collateral, and total borrowed values in USD for a user.
-     * @param user The address of the user.
-     */
-    function getUserData(
+     function getUserData(
         address user
     )
         public
@@ -729,11 +601,8 @@ contract LendingPool is Pausable, NFTCollateral {
         totalBorrowValue = getUserTotalBorrow(user);
     }
 
-    /**
-     * @dev Calculates the total USD value of all tokens collateral for a user.
-     * @param user The address of the user.
-     */
-    function getUserTotalTokenCollateral(
+
+        function getUserTotalTokenCollateral(
         address user
     ) public view returns (uint256 totalValueUSD) {
         uint256 len = supportedERC20s.length;
@@ -752,12 +621,7 @@ contract LendingPool is Pausable, NFTCollateral {
         }
     }
 
-    /**
-     * @dev Calculates the total USD value of all NFTs collateral for a user.
-     * @param user The address of the user.
-     */
-
-    function getUserNFTCollateralValue(
+     function getUserNFTCollateralValue(
         address user
     ) public view returns (uint256 totalValueUSD) {
         uint256 len = supportedNFTs.length;
@@ -774,11 +638,7 @@ contract LendingPool is Pausable, NFTCollateral {
         }
     }
 
-    /**
-     * @dev Calculates the total borrowed USD value for a user.
-     * @param user The address of the user.
-     */
-    function getUserTotalBorrow(
+     function getUserTotalBorrow(
         address user
     ) public view returns (uint256 totalValueUSD) {
         uint256 len = supportedERC20s.length;
@@ -797,12 +657,7 @@ contract LendingPool is Pausable, NFTCollateral {
         }
     }
 
-    /**
-     * @dev Returns the collateral and borrow shares for a specific token and user.
-     * @param user The address of the user.
-     * @param token The address of the token.
-     */
-    function getUserTokenCollateralAndBorrow(
+     function getUserTokenCollateralAndBorrow(
         address user,
         address token
     )
@@ -814,11 +669,8 @@ contract LendingPool is Pausable, NFTCollateral {
         tokenBorrowShare = userShares[user][token].borrow;
     }
 
-    /**
-     * @dev Calculates the health factor of a user.
-     * @param user The address of the user.
-     */
-    function healthFactor(address user) public view returns (uint256 factor) {
+
+       function healthFactor(address user) public view returns (uint256 factor) {
         (
             uint256 totalTokenCollateral,
             uint256 totalNFTCollateral,
@@ -835,12 +687,7 @@ contract LendingPool is Pausable, NFTCollateral {
             totalBorrowValue;
     }
 
-    /**
-     * @dev Converts the given amount of a token to its equivalent value in USD.
-     * @param token The address of the token.
-     * @param amount The amount of the token.
-     */
-    function getAmountInUSD(
+      function getAmountInUSD(
         address token,
         uint256 amount
     ) public view returns (uint256 value) {
@@ -851,23 +698,14 @@ contract LendingPool is Pausable, NFTCollateral {
         value = (amountIn18Decimals * price) / PRECISION;
     }
 
-    /**
-     * @dev Obtain all informations about the token vault.
-     * @param token The address of the token.
-     */
+
     function getTokenVault(
         address token
     ) public view returns (PoolStructs.TokenVault memory vault) {
         vault = vaults[token];
     }
 
-    /**
-     * @dev Obtain liquidation warning information for a specific NFT.
-     * @param account The address of the account.
-     * @param nft The address of the NFT.
-     * @param tokenId The ID of the NFT.
-     */
-    function getNFTLiquidationWarning(
+     function getNFTLiquidationWarning(
         address account,
         address nft,
         uint256 tokenId
@@ -875,14 +713,8 @@ contract LendingPool is Pausable, NFTCollateral {
         return nftLiquidationWarning[account][nft][tokenId];
     }
 
-    /**
-     * @dev Converts the given amount of a token to its equivalent shares.
-     * @param token The address of the token.
-     * @param amount The amount of the token.
-     * @param isAsset Boolean indicating whether the amount is asset or borrow.
-     */
 
-    function amountToShares(
+     function amountToShares(
         address token,
         uint256 amount,
         bool isAsset
@@ -894,13 +726,7 @@ contract LendingPool is Pausable, NFTCollateral {
         }
     }
 
-    /**
-     * @dev Converts the given shares of a token to its equivalent amount.
-     * @param token The address of the token.
-     * @param shares The shares of the token.
-     * @param isAsset Boolean indicating whether the amount is asset or borrow.
-     */
-    function sharesToAmount(
+     function sharesToAmount(
         address token,
         uint256 shares,
         bool isAsset
@@ -912,44 +738,29 @@ contract LendingPool is Pausable, NFTCollateral {
         }
     }
 
-    /**
-     * @dev The amount of token available to be lended.
-     * @param token The loan currency.
-     * @return maxFlashloanAmount The amount of `token` that can be borrowed.
-     */
-    function maxFlashLoan(
+
+     function maxFlashLoan(
         address token
     ) public view returns (uint256 maxFlashloanAmount) {
         maxFlashloanAmount = pausedStatus(token) ? 0 : type(uint256).max;
     }
 
-    /**
-     * @dev The fee to be charged for a given token loan.
-     * @param token The loan token.
-     * @param amount The amount of tokens lent.
-     * @return The fee amount of `token` to be charged for the loan, on top of the returned principal.
-     */
-    function flashFee(
+
+     function flashFee(
         address token,
         uint256 amount
     ) public view returns (uint256) {
         return (amount * vaults[token].vaultInfo.flashFeeRate) / BPS;
     }
 
-    /*//////////////////////////////////////////////////////////////
+
+       /*//////////////////////////////////////////////////////////////
                             Owner functions
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Sets up the vault for a specified ERC20 token.
-     * @dev only called by the owner.
-     * @param token The ERC20 token address.
-     * @param priceFeed The address of the price feed contract for the token.
-     * @param tokenType The type of the token (ERC20 or ERC721).
-     * @param params The parameters for vault setup (see PoolStructs.VaultSetupParams).
-     * @param addToken Boolean indicating whether to add a new supported token or just change the setup of an already added token.
-     */
-    function setupVault(
+
+
+      function setupVault(
         address token,
         address priceFeed,
         PoolStructs.TokenType tokenType,
@@ -959,16 +770,7 @@ contract LendingPool is Pausable, NFTCollateral {
         _setupVault(token, priceFeed, tokenType, params, addToken);
     }
 
-    //--------------------------------------------------------------------
-    /** INTERNAL FUNCTIONS */
-
-    /**
-     * @dev Checks if a specific token vault has sufficient balance and is above the reserve ratio.
-     * @param token The ERC20 token address.
-     * @param pulledAmount The amount to pull from the vault.
-     * @return isAboveReserveRatio True if the vault has sufficient balance, otherwise false.
-     */
-    function vaultAboveReserveRatio(
+     function vaultAboveReserveRatio(
         address token,
         uint256 pulledAmount
     ) internal view returns (bool isAboveReserveRatio) {
@@ -1018,7 +820,7 @@ contract LendingPool is Pausable, NFTCollateral {
         emit Withdraw(msg.sender, token, amount, shares);
     }
 
-    function _accrueInterest(
+     function _accrueInterest(
         address token
     )
         internal
@@ -1093,8 +895,8 @@ contract LendingPool is Pausable, NFTCollateral {
         // save to storage
         vaults[token] = _vault;
     }
-  
-    function _setupVault(
+
+     function _setupVault(
         address token,
         address priceFeed,
         PoolStructs.TokenType tokenType,
@@ -1126,4 +928,5 @@ contract LendingPool is Pausable, NFTCollateral {
             emit NewVaultSetup(token, params);
         }
     }
+
 }

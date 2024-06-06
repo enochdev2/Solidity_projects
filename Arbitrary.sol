@@ -44,7 +44,7 @@ contract Arbitrage {
         uint amountToken = _amount0 == 0 ? _amount1 : _amount0;
 
         address token0 = IUniswapV2Pair(msg.sender).token0();
-        address token1 = IUniswapV2Pair(msg. sender).token1();
+        address token1 = IUniswapV2Pair(msg.sender).token1();
 
         require(
             msg.sender == Uniswapv2Library.pairFor(factory, token0, token1),

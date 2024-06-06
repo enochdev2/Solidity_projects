@@ -11,7 +11,7 @@ abstract contract Constants {
     uint256 internal constant CLOSE_FACTOR_HF_THRESHOLD = 0.9e18;
     uint256 internal constant LIQUIDATION_THRESHOLD = 8e4; // 80%
     uint256 internal constant DEFAULT_LIQUIDATION_CLOSE_FACTOR = 5e4; // 50%
-    uint256 internal constant LIQUIDATION_REWARD = 5e3; // 5%
+    uint256 internal constant LIQUIDATION_REWARD = 5e3; // 5% 
 
     uint256 internal constant NFT_LIQUIDATION_DISCOUNT = 1e4; // 10%
     // delay given to insolvent borrower for repaying debt to avoid NFT liquidation
