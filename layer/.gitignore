@@ -1,0 +1,8 @@
+cache/
+out/
+broadcast/
+
+.env
+!.env.sample
+
+.vscode
